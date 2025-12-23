@@ -376,7 +376,7 @@ export default function BooksPage() {
                       alt={book.title}
                       className="w-full h-40 object-cover rounded-md border border-gray-200 dark:border-gray-700"
                       onError={(e) => {
-                        console.error('Book cover failed to load. Original URL:', book.imageUrl, 'Converted URL:', getDirectImageUrl(book.imageUrl));
+                        console.error('Book cover failed to load. Original URL:', book.imageUrl || 'N/A', 'Converted URL:', getDirectImageUrl(book.imageUrl));
                         const img = e.target as HTMLImageElement;
                         const parent = img.parentElement;
                         if (parent) {
@@ -455,7 +455,7 @@ export default function BooksPage() {
                       alt={book.title}
                       className="w-full h-40 object-cover rounded-md border border-gray-200 dark:border-gray-700"
                       onError={(e) => {
-                        console.error('Book cover failed to load. Original URL:', book.imageUrl, 'Converted URL:', getDirectImageUrl(book.imageUrl));
+                        console.error('Book cover failed to load. Original URL:', book.imageUrl || 'N/A', 'Converted URL:', getDirectImageUrl(book.imageUrl));
                         const img = e.target as HTMLImageElement;
                         const parent = img.parentElement;
                         if (parent) {

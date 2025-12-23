@@ -185,7 +185,7 @@ export default function VisionBoardPage() {
                     alt="Vision board"
                     className="w-full h-full object-cover"
                     onError={(e) => {
-                      console.error('Image failed to load. Original URL:', item.imageUrl, 'Converted URL:', getDirectImageUrl(item.imageUrl));
+                      console.error('Image failed to load. Original URL:', item.imageUrl || 'N/A', 'Converted URL:', getDirectImageUrl(item.imageUrl));
                       const img = e.target as HTMLImageElement;
                       const parent = img.parentElement;
                       if (parent) {

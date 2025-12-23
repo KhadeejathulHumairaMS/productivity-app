@@ -2,8 +2,8 @@
  * Converts various image URL formats to direct image URLs
  * Handles Google Drive, Unsplash, and other common image hosting services
  */
-export function getDirectImageUrl(url: string): string {
-  if (!url) return url;
+export function getDirectImageUrl(url: string | undefined): string {
+  if (!url) return '';
 
   // If it's already a direct image URL (ends with image extensions), return as-is
   if (/\.(jpg|jpeg|png|gif|webp|svg|bmp)(\?.*)?$/i.test(url)) {
