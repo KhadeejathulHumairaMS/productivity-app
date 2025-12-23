@@ -2,16 +2,27 @@
 
 import { useState, useEffect } from 'react';
 import { FinancialEntry } from '@/lib/types';
-import { storage } from '@/lib/storage';
-import { Plus, Trash2, Edit2, DollarSign, TrendingUp, TrendingDown, PiggyBank, Wallet } from 'lucide-react';
+import { Plus, Trash2, Edit2, IndianRupee, TrendingUp, TrendingDown, PiggyBank, Wallet } from 'lucide-react';
 import { format } from 'date-fns';
 import { usePageTitle } from '@/lib/usePageTitle';
+import {
+  fetchFinances,
+  addFinance as addFinanceRemote,
+  updateFinance as updateFinanceRemote,
+  deleteFinance as deleteFinanceRemote,
+} from '@/lib/data/finances';
+import { PieChart, Pie, Cell, Legend, ResponsiveContainer, Tooltip } from 'recharts';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 
 export default function FinancesPage() {
   usePageTitle('Financial Tracker | Personal Productivity Hub');
   const [entries, setEntries] = useState<FinancialEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [month, setMonth] = useState(format(new Date(), 'yyyy-MM'));
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     type: 'expense' as 'salary' | 'expense' | 'savings' | 'investment',
     amount: '',
@@ -20,14 +31,22 @@ export default function FinancesPage() {
     date: format(new Date(), 'yyyy-MM-dd'),
   });
 
-  useEffect(() => {
-    setEntries(storage.finances.get());
-  }, []);
+  const parseDateUTC = (d: string) => new Date(`${d}T12:00:00Z`);
 
-  const saveEntries = (updatedEntries: FinancialEntry[]) => {
-    setEntries(updatedEntries);
-    storage.finances.set(updatedEntries);
-  };
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const data = await fetchFinances();
+        setEntries(data);
+      } catch (err) {
+        console.error(err);
+        setError('Failed to load finances from Supabase.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, []);
 
   const resetForm = () => {
     setFormData({
@@ -46,18 +65,27 @@ export default function FinancesPage() {
     if (!formData.amount || !formData.description.trim()) return;
 
     if (editingId) {
-      saveEntries(
-        entries.map((entry) =>
-          entry.id === editingId
-            ? {
-                ...entry,
-                ...formData,
-                amount: parseFloat(formData.amount),
-                date: new Date(formData.date),
-              }
-            : entry
-        )
+      const updated = entries.map((entry) =>
+        entry.id === editingId
+          ? {
+              ...entry,
+              ...formData,
+              amount: parseFloat(formData.amount),
+              date: parseDateUTC(formData.date),
+            }
+          : entry
       );
+      setEntries(updated);
+      updateFinanceRemote(editingId, {
+        type: formData.type,
+        amount: parseFloat(formData.amount),
+        description: formData.description,
+        category: formData.category || undefined,
+        date: parseDateUTC(formData.date),
+      }).catch((err) => {
+        console.error(err);
+        setError('Failed to update entry in Supabase.');
+      });
     } else {
       const entry: FinancialEntry = {
         id: Date.now().toString(),
@@ -65,9 +93,13 @@ export default function FinancesPage() {
         amount: parseFloat(formData.amount),
         description: formData.description,
         category: formData.category || undefined,
-        date: new Date(formData.date),
+        date: parseDateUTC(formData.date),
       };
-      saveEntries([...entries, entry]);
+      setEntries([...entries, entry]);
+      addFinanceRemote(entry).catch((err) => {
+        console.error(err);
+        setError('Failed to add entry to Supabase.');
+      });
     }
     resetForm();
   };
@@ -85,25 +117,43 @@ export default function FinancesPage() {
   };
 
   const deleteEntry = (id: string) => {
-    if (confirm('Are you sure you want to delete this entry?')) {
-      saveEntries(entries.filter((entry) => entry.id !== id));
-    }
+    setConfirmDeleteId(id);
   };
 
-  // Calculate totals
-  const salary = entries
+  const formatCurrency = (val: number) =>
+    new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(val);
+
+  // Filter entries by selected month
+  const toMonth = (d: Date) => d.toISOString().slice(0, 7);
+  const monthEntries = entries.filter((e) => toMonth(e.date) === month);
+
+  // Calculate monthly totals
+  const salary = monthEntries
     .filter((e) => e.type === 'salary')
     .reduce((sum, e) => sum + e.amount, 0);
-  const expenses = entries
+  const expenses = monthEntries
     .filter((e) => e.type === 'expense')
     .reduce((sum, e) => sum + e.amount, 0);
-  const savings = entries
+  const savings = monthEntries
     .filter((e) => e.type === 'savings')
     .reduce((sum, e) => sum + e.amount, 0);
-  const investments = entries
+  const investments = monthEntries
     .filter((e) => e.type === 'investment')
     .reduce((sum, e) => sum + e.amount, 0);
   const netIncome = salary - expenses - savings - investments;
+
+  // Pie chart data
+  const pieData = [
+    { name: 'Salary', value: salary, color: '#10b981' },
+    { name: 'Expenses', value: expenses, color: '#ef4444' },
+    { name: 'Savings', value: savings, color: '#3b82f6' },
+    { name: 'Investments', value: investments, color: '#a855f7' },
+  ].filter((item) => item.value > 0);
 
   const getTypeIcon = (type: string) => {
     switch (type) {
@@ -116,7 +166,7 @@ export default function FinancesPage() {
       case 'investment':
         return <Wallet size={20} className="text-purple-600" />;
       default:
-        return <DollarSign size={20} />;
+        return <IndianRupee size={20} />;
     }
   };
 
@@ -137,7 +187,12 @@ export default function FinancesPage() {
 
   return (
     <div className="p-4 md:p-8 max-w-6xl mx-auto">
-      <div className="mb-8 flex justify-between items-center">
+      {error && (
+        <div className="mb-4 rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-700">
+          {error}
+        </div>
+      )}
+      <div className="mb-8 flex flex-col md:flex-row md:justify-between md:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
             Financial Tracker
@@ -146,13 +201,29 @@ export default function FinancesPage() {
             Track your salary, expenses, savings, and investments
           </p>
         </div>
-        <button
-          onClick={() => setShowForm(!showForm)}
-          className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
-        >
-          <Plus size={20} />
-          Add Entry
-        </button>
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
+              Month:
+            </label>
+            <input
+              type="month"
+              value={month}
+              onChange={(e) => setMonth(e.target.value)}
+              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+            />
+          </div>
+          <button
+            onClick={() => {
+              resetForm();
+              setShowForm(true);
+            }}
+            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 justify-center"
+          >
+            <Plus size={20} />
+            Add Entry
+          </button>
+        </div>
       </div>
 
       {/* Summary Cards */}
@@ -163,7 +234,7 @@ export default function FinancesPage() {
             <TrendingUp size={24} className="text-green-600" />
           </div>
           <p className="text-2xl font-bold text-gray-900 dark:text-white">
-            ${salary.toFixed(2)}
+            {formatCurrency(salary)}
           </p>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
@@ -172,7 +243,7 @@ export default function FinancesPage() {
             <TrendingDown size={24} className="text-red-600" />
           </div>
           <p className="text-2xl font-bold text-gray-900 dark:text-white">
-            ${expenses.toFixed(2)}
+            {formatCurrency(expenses)}
           </p>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
@@ -181,23 +252,55 @@ export default function FinancesPage() {
             <PiggyBank size={24} className="text-blue-600" />
           </div>
           <p className="text-2xl font-bold text-gray-900 dark:text-white">
-            ${savings.toFixed(2)}
+            {formatCurrency(savings)}
           </p>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
           <div className="flex items-center justify-between mb-2">
             <span className="text-gray-600 dark:text-gray-400">Net Income</span>
-            <DollarSign size={24} className={netIncome >= 0 ? 'text-green-600' : 'text-red-600'} />
+            <IndianRupee size={24} className={netIncome >= 0 ? 'text-green-600' : 'text-red-600'} />
           </div>
           <p className={`text-2xl font-bold ${netIncome >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-            ${netIncome.toFixed(2)}
+            {formatCurrency(netIncome)}
           </p>
         </div>
       </div>
 
+      {/* Pie Chart */}
+      {pieData.length > 0 && (
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-8">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+            Financial Breakdown - {format(new Date(`${month}-01`), 'MMMM yyyy')}
+          </h2>
+          <ResponsiveContainer width="100%" height={300}>
+            <PieChart>
+              <Pie
+                data={pieData}
+                cx="50%"
+                cy="50%"
+                labelLine={false}
+                label={({ name, percent }) => `${name}: ${percent ? (percent * 100).toFixed(0) : 0}%`}
+                outerRadius={80}
+                fill="#8884d8"
+                dataKey="value"
+              >
+                {pieData.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={entry.color} />
+                ))}
+              </Pie>
+              <Tooltip formatter={(value: number | undefined) => value ? formatCurrency(value) : ''} />
+              <Legend />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
       {/* Add/Edit Form */}
       {showForm && (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+            {editingId ? 'Edit Entry' : 'Add New Entry'}
+          </h2>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -293,16 +396,20 @@ export default function FinancesPage() {
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
         <div className="p-4 border-b border-gray-200 dark:border-gray-700">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-            All Entries ({entries.length})
+            {format(new Date(`${month}-01`), 'MMMM yyyy')} Entries ({monthEntries.length})
           </h2>
         </div>
-        {entries.length === 0 ? (
+        {loading ? (
           <div className="p-12 text-center text-gray-500 dark:text-gray-400">
-            No entries yet. Add one to get started!
+            Loading entries...
+          </div>
+        ) : monthEntries.length === 0 ? (
+          <div className="p-12 text-center text-gray-500 dark:text-gray-400">
+            No entries for this month. Add one to get started!
           </div>
         ) : (
           <div className="divide-y divide-gray-200 dark:divide-gray-700">
-            {entries
+            {monthEntries
               .sort((a, b) => b.date.getTime() - a.date.getTime())
               .map((entry) => (
                 <div
@@ -315,7 +422,7 @@ export default function FinancesPage() {
                         {getTypeIcon(entry.type)}
                       </div>
                       <div className="flex-1">
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-3 flex-wrap">
                           <span className="font-semibold text-gray-900 dark:text-white">
                             {entry.description}
                           </span>
@@ -328,7 +435,8 @@ export default function FinancesPage() {
                                 : 'text-blue-600'
                             }`}
                           >
-                            {entry.type === 'expense' ? '-' : '+'}${entry.amount.toFixed(2)}
+                            {entry.type === 'expense' ? '-' : '+'}
+                            {formatCurrency(entry.amount)}
                           </span>
                         </div>
                         <div className="flex items-center gap-4 mt-1 text-sm text-gray-600 dark:text-gray-400">
@@ -361,7 +469,23 @@ export default function FinancesPage() {
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        open={!!confirmDeleteId}
+        title="Delete entry?"
+        message="Are you sure you want to delete this financial entry? This action cannot be undone."
+        onCancel={() => setConfirmDeleteId(null)}
+        onConfirm={() => {
+          if (confirmDeleteId) {
+            setEntries(entries.filter((entry) => entry.id !== confirmDeleteId));
+            deleteFinanceRemote(confirmDeleteId).catch((err) => {
+              console.error(err);
+              setError('Failed to delete entry in Supabase.');
+            });
+            setConfirmDeleteId(null);
+          }
+        }}
+      />
     </div>
   );
 }
-
