@@ -148,6 +148,14 @@ export default function DashboardPage() {
     (a, b) => b.date.getTime() - a.date.getTime()
   )[0];
 
+  const formatCurrency = (val: number) =>
+    new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(val);
+
   return (
     <div className="p-4 md:p-8 max-w-6xl mx-auto">
       {/* Header */}
@@ -407,25 +415,25 @@ export default function DashboardPage() {
             <div>
               <p className="text-gray-500 dark:text-gray-400">Salary</p>
               <p className="font-semibold text-gray-900 dark:text-white">
-                ${salary.toFixed(2)}
+                {formatCurrency(salary)}
               </p>
             </div>
             <div>
               <p className="text-gray-500 dark:text-gray-400">Expenses</p>
               <p className="font-semibold text-red-600">
-                -${expenses.toFixed(2)}
+                -{formatCurrency(expenses)}
               </p>
             </div>
             <div>
               <p className="text-gray-500 dark:text-gray-400">Savings</p>
               <p className="font-semibold text-blue-600">
-                -${savings.toFixed(2)}
+                -{formatCurrency(savings)}
               </p>
             </div>
             <div>
               <p className="text-gray-500 dark:text-gray-400">Investments</p>
               <p className="font-semibold text-purple-600">
-                -${investments.toFixed(2)}
+                -{formatCurrency(investments)}
               </p>
             </div>
           </div>
@@ -435,7 +443,7 @@ export default function DashboardPage() {
                 net >= 0 ? 'text-emerald-600' : 'text-red-600'
               }`}
             >
-              Net: {net >= 0 ? '+' : '-'}${Math.abs(net).toFixed(2)}
+              Net: {net >= 0 ? '+' : '-'}{formatCurrency(Math.abs(net))}
             </p>
             <span className="inline-flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400">
               Open finances <ChevronRight size={14} />

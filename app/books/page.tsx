@@ -12,6 +12,7 @@ import {
   updateBook as updateBookRemote,
   deleteBook as deleteBookRemote,
 } from '@/lib/data/books';
+import { getDirectImageUrl } from '@/lib/imageUtils';
 
 export default function BooksPage() {
   usePageTitle('Books Tracker | Personal Productivity Hub');
@@ -261,17 +262,34 @@ export default function BooksPage() {
                     className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                   />
                   <p className="text-xs text-gray-500 dark:text-gray-400">
-                    Or paste an image URL.
+                    💡 Tip: For Unsplash images, right-click the image and select "Copy image address" to get the direct URL
                   </p>
                 </div>
               </div>
-              {formData.imageUrl && (
-                <img
-                  src={formData.imageUrl}
-                  alt="Preview"
-                  className="mt-3 w-full h-40 object-cover rounded-md border border-gray-200 dark:border-gray-700"
-                  onError={(e) => ((e.target as HTMLImageElement).style.display = 'none')}
-                />
+              {formData.imageUrl && formData.imageUrl.trim() !== '' && (
+                <div className="mt-3 relative">
+                  <img
+                    src={getDirectImageUrl(formData.imageUrl)}
+                    alt="Preview"
+                    className="w-full h-40 object-cover rounded-md border border-gray-200 dark:border-gray-700"
+                    onError={(e) => {
+                      console.error('Preview image failed to load:', formData.imageUrl);
+                      const img = e.target as HTMLImageElement;
+                      const parent = img.parentElement;
+                      if (parent) {
+                        img.style.display = 'none';
+                        if (!parent.querySelector('.image-error-msg')) {
+                          const errorMsg = document.createElement('div');
+                          errorMsg.className = 'image-error-msg w-full h-40 flex items-center justify-center bg-gray-100 dark:bg-gray-700 rounded-md border border-gray-200 dark:border-gray-700';
+                          errorMsg.innerHTML = `
+                            <p class="text-xs text-gray-500 dark:text-gray-400 text-center px-2">Preview failed to load. Please check the URL.</p>
+                          `;
+                          parent.appendChild(errorMsg);
+                        }
+                      }
+                    }}
+                  />
+                </div>
               )}
             </div>
             <div>
@@ -351,13 +369,30 @@ export default function BooksPage() {
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
                   {book.title}
                 </h3>
-                {book.imageUrl && (
-                  <img
-                    src={book.imageUrl}
-                    alt={book.title}
-                    className="w-full h-40 object-cover rounded-md mb-3 border border-gray-200 dark:border-gray-700"
-                    onError={(e) => ((e.target as HTMLImageElement).style.display = 'none')}
-                  />
+                {book.imageUrl && book.imageUrl.trim() !== '' && (
+                  <div className="relative mb-3">
+                    <img
+                      src={getDirectImageUrl(book.imageUrl)}
+                      alt={book.title}
+                      className="w-full h-40 object-cover rounded-md border border-gray-200 dark:border-gray-700"
+                      onError={(e) => {
+                        console.error('Book cover failed to load. Original URL:', book.imageUrl, 'Converted URL:', getDirectImageUrl(book.imageUrl));
+                        const img = e.target as HTMLImageElement;
+                        const parent = img.parentElement;
+                        if (parent) {
+                          img.style.display = 'none';
+                          if (!parent.querySelector('.image-error-msg')) {
+                            const errorMsg = document.createElement('div');
+                            errorMsg.className = 'image-error-msg w-full h-40 flex items-center justify-center bg-gray-100 dark:bg-gray-700 rounded-md border border-gray-200 dark:border-gray-700';
+                            errorMsg.innerHTML = `
+                              <p class="text-xs text-gray-500 dark:text-gray-400 text-center px-2">Cover image failed to load</p>
+                            `;
+                            parent.appendChild(errorMsg);
+                          }
+                        }
+                      }}
+                    />
+                  </div>
                 )}
                 <p className="text-gray-600 dark:text-gray-400 mb-2">by {book.author}</p>
                 {book.startedDate && (
@@ -413,13 +448,30 @@ export default function BooksPage() {
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
                   {book.title}
                 </h3>
-                {book.imageUrl && (
-                  <img
-                    src={book.imageUrl}
-                    alt={book.title}
-                    className="w-full h-40 object-cover rounded-md mb-3 border border-gray-200 dark:border-gray-700"
-                    onError={(e) => ((e.target as HTMLImageElement).style.display = 'none')}
-                  />
+                {book.imageUrl && book.imageUrl.trim() !== '' && (
+                  <div className="relative mb-3">
+                    <img
+                      src={getDirectImageUrl(book.imageUrl)}
+                      alt={book.title}
+                      className="w-full h-40 object-cover rounded-md border border-gray-200 dark:border-gray-700"
+                      onError={(e) => {
+                        console.error('Book cover failed to load. Original URL:', book.imageUrl, 'Converted URL:', getDirectImageUrl(book.imageUrl));
+                        const img = e.target as HTMLImageElement;
+                        const parent = img.parentElement;
+                        if (parent) {
+                          img.style.display = 'none';
+                          if (!parent.querySelector('.image-error-msg')) {
+                            const errorMsg = document.createElement('div');
+                            errorMsg.className = 'image-error-msg w-full h-40 flex items-center justify-center bg-gray-100 dark:bg-gray-700 rounded-md border border-gray-200 dark:border-gray-700';
+                            errorMsg.innerHTML = `
+                              <p class="text-xs text-gray-500 dark:text-gray-400 text-center px-2">Cover image failed to load</p>
+                            `;
+                            parent.appendChild(errorMsg);
+                          }
+                        }
+                      }}
+                    />
+                  </div>
                 )}
                 <p className="text-gray-600 dark:text-gray-400 mb-2">by {book.author}</p>
                 {book.completedDate && (

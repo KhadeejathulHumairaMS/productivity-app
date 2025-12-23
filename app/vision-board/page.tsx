@@ -6,6 +6,7 @@ import { Plus, Trash2, Edit2, Image as ImageIcon, Quote } from 'lucide-react';
 import { usePageTitle } from '@/lib/usePageTitle';
 import { addVisionItem, deleteVisionItem, fetchVisionBoard, updateVisionItem } from '@/lib/data/visionBoard';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { getDirectImageUrl } from '@/lib/imageUtils';
 
 export default function VisionBoardPage() {
   usePageTitle('Vision Board | Personal Productivity Hub');
@@ -125,6 +126,9 @@ export default function VisionBoardPage() {
                 placeholder="https://example.com/image.jpg"
                 className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
               />
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                💡 Tip: For Unsplash images, right-click the image and select "Copy image address" to get the direct URL
+              </p>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -174,14 +178,32 @@ export default function VisionBoardPage() {
               key={item.id}
               className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden relative group"
             >
-              {item.imageUrl && (
-                <div className="relative h-64">
+              {item.imageUrl && item.imageUrl.trim() !== '' && (
+                <div className="relative h-64 bg-gray-100 dark:bg-gray-700">
                   <img
-                    src={item.imageUrl}
+                    src={getDirectImageUrl(item.imageUrl)}
                     alt="Vision board"
                     className="w-full h-full object-cover"
                     onError={(e) => {
-                      (e.target as HTMLImageElement).style.display = 'none';
+                      console.error('Image failed to load. Original URL:', item.imageUrl, 'Converted URL:', getDirectImageUrl(item.imageUrl));
+                      const img = e.target as HTMLImageElement;
+                      const parent = img.parentElement;
+                      if (parent) {
+                        img.style.display = 'none';
+                        // Show error message
+                        if (!parent.querySelector('.image-error-msg')) {
+                          const errorMsg = document.createElement('div');
+                          errorMsg.className = 'image-error-msg absolute inset-0 flex items-center justify-center p-4 bg-gray-100 dark:bg-gray-700';
+                          errorMsg.innerHTML = `
+                            <div class="text-center text-gray-500 dark:text-gray-400">
+                              <p class="text-sm font-medium mb-1">⚠️ Image failed to load</p>
+                              <p class="text-xs">Please use a direct image URL</p>
+                              <p class="text-xs mt-1 opacity-75">For Unsplash: Right-click image → Copy image address</p>
+                            </div>
+                          `;
+                          parent.appendChild(errorMsg);
+                        }
+                      }
                     }}
                   />
                   <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-opacity flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">

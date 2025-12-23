@@ -7,6 +7,7 @@ import { format } from 'date-fns';
 import { usePageTitle } from '@/lib/usePageTitle';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { addGoal, deleteGoal as deleteGoalRemote, fetchGoals, updateGoal as updateGoalRemote } from '@/lib/data/goals';
+import { getDirectImageUrl } from '@/lib/imageUtils';
 
 export default function GoalsPage() {
   usePageTitle('Goals | Personal Productivity Hub');
@@ -205,7 +206,7 @@ export default function GoalsPage() {
                 {formData.imageUrl && (
                   <div className="relative">
                     <img
-                      src={formData.imageUrl}
+                      src={getDirectImageUrl(formData.imageUrl)}
                       alt="Preview"
                       className="w-full h-48 object-cover rounded-lg border border-gray-300 dark:border-gray-600"
                       onError={(e) => {
@@ -276,7 +277,7 @@ export default function GoalsPage() {
               >
                 {goal.imageUrl && (
                   <img
-                    src={goal.imageUrl}
+                    src={getDirectImageUrl(goal.imageUrl)}
                     alt={goal.title}
                     className="w-full h-48 object-cover"
                     onError={(e) => {
@@ -338,7 +339,7 @@ export default function GoalsPage() {
               >
                 {goal.imageUrl && (
                   <img
-                    src={goal.imageUrl}
+                    src={getDirectImageUrl(goal.imageUrl)}
                     alt={goal.title}
                     className="w-full h-48 object-cover"
                     onError={(e) => {
